@@ -1,0 +1,60 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{0A96E81D-DAF6-419A-B62C-8A565438F929}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="TxSocketClient\TxSocketsClient.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="TxSocketClientDll\TxSocketClientDll.dproj">
+            <Dependencies>TxSocketClient\TxSocketsClient.dproj</Dependencies>
+        </Projects>
+        <Projects Include="TxSocketServer\TxSocketsServeur.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="TxSocketsClient">
+        <MSBuild Projects="TxSocketClient\TxSocketsClient.dproj"/>
+    </Target>
+    <Target Name="TxSocketsClient:Clean">
+        <MSBuild Projects="TxSocketClient\TxSocketsClient.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TxSocketsClient:Make">
+        <MSBuild Projects="TxSocketClient\TxSocketsClient.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TxSocketClientDll" DependsOnTargets="TxSocketsClient">
+        <MSBuild Projects="TxSocketClientDll\TxSocketClientDll.dproj"/>
+    </Target>
+    <Target Name="TxSocketClientDll:Clean" DependsOnTargets="TxSocketsClient:Clean">
+        <MSBuild Projects="TxSocketClientDll\TxSocketClientDll.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TxSocketClientDll:Make" DependsOnTargets="TxSocketsClient:Make">
+        <MSBuild Projects="TxSocketClientDll\TxSocketClientDll.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="TxSocketsServeur">
+        <MSBuild Projects="TxSocketServer\TxSocketsServeur.dproj"/>
+    </Target>
+    <Target Name="TxSocketsServeur:Clean">
+        <MSBuild Projects="TxSocketServer\TxSocketsServeur.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="TxSocketsServeur:Make">
+        <MSBuild Projects="TxSocketServer\TxSocketsServeur.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="TxSocketsClient;TxSocketClientDll;TxSocketsServeur"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="TxSocketsClient:Clean;TxSocketClientDll:Clean;TxSocketsServeur:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="TxSocketsClient:Make;TxSocketClientDll:Make;TxSocketsServeur:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

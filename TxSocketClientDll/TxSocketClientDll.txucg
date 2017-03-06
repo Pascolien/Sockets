@@ -1,0 +1,12 @@
+[DPR]
+sPath_File=#FILEDIR#TxSocketClientDll.dpr
+
+[U_Abstract]
+sPath_File=#FILEDIR#pas\U_Abstract_TxSocketClientDll.pas
+sUses=Windows,SysUtils,System.Win.ScktComp,Classes, U_Small_Lib;
+
+[DPR_Files]
+//FastShareMem,
+//System.SysUtils,
+//System.Classes,
+TxSocketClientThread in 'Pas\TxSocketClientThread.pas';

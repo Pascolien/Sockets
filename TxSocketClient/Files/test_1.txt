@@ -1,0 +1,9 @@
+FNo Boot
+>This test failed!
+FU32
+>74F244
+>Nail 1010: Pin 9: Node: N796
+>(J1.2 OUT ANA) (U32.9 OUTPUT)
+MR1
+d9.32k
+>Resistance measurement across R1

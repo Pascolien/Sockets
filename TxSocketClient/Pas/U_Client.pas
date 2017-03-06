@@ -1,0 +1,378 @@
+unit U_Client;
+
+interface
+
+uses
+  FastShareMem,
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  System.Win.ScktComp, Vcl.Samples.Spin, Web.Win.Sockets,  pngimage,
+  Inifiles, Vcl.ImgList, Vcl.Buttons, JvComponentBase, JvMTComponents,
+  Vcl.ComCtrls, JvExControls, JvSegmentedLEDDisplay;
+
+type
+  TFrm_SocketClient = class(TForm)
+    E_Server_IP: TEdit;
+    Memo1: TMemo;
+    CB_Equipments: TComboBox;
+    CB_Commands: TComboBox;
+    Label1: TLabel;
+    Label2: TLabel;
+    Bt_Send_Command: TButton;
+    Label3: TLabel;
+    Label4: TLabel;
+    E_Server_Port: TEdit;
+    ImageList1: TImageList;
+    BBT_LoadFile: TBitBtn;
+    Cb_Files: TComboBox;
+    Label5: TLabel;
+    Bt_Upload_File: TButton;
+    Panel1: TPanel;
+    Img_Server_Active: TImage;
+    Img_Connected: TImage;
+    Img_Send: TImage;
+    Img_GetFile: TImage;
+    Timer1: TTimer;
+    PC_Display_File: TPageControl;
+    TabSheet1: TTabSheet;
+    Img_Picture: TImage;
+    TabSheet2: TTabSheet;
+    M_File: TMemo;
+    JvSegmentedLEDDisplay1: TJvSegmentedLEDDisplay;
+    procedure initialize;
+    procedure Bt_Send_CommandClick(Sender: TObject);
+
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormCreate(Sender: TObject);
+    procedure CB_EquipmentsChange(Sender: TObject);
+
+    procedure TreatServerResponse(aStream: TMemoryStream; aCommand: string; aRequiredType: string = 'str'; aExtraData : string = '');
+    procedure CB_CommandsChange(Sender: TObject);
+    procedure BBT_LoadFileClick(Sender: TObject);
+    procedure Cb_FilesChange(Sender: TObject);
+
+    procedure Display_File(aPathFileName: String);
+
+    procedure Set_Led_Server_Active(aIndex: integer);
+    procedure Set_Led_Connection(aIndex:integer);
+    procedure Set_Led_Send_Receive(aIndex: integer);
+    procedure Set_Led_File(aIndex:integer);
+    procedure Set_Led_File_Flashing();
+    procedure Bt_Upload_FileClick(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
+    procedure Memo1DblClick(Sender: TObject);
+
+  private
+    Procedure Update_Tracer(aText: string);
+
+  public
+    { Déclarations publiques }
+  end;
+
+var
+  Frm_SocketClient: TFrm_SocketClient;
+  inifile : TIniFile;
+  bFlashOn : boolean=false;
+
+implementation
+
+{$R *.dfm}
+uses
+  U_Abstract_TxSocketClientDll,
+  U_Small_Lib;
+
+procedure TFrm_SocketClient.Timer1Timer(Sender: TObject);
+begin
+  if bFlashOn then
+  begin
+    Set_Led_File(5);
+    bFlashOn := false;
+  end
+  else
+  begin
+    Set_Led_File(6);
+    bFlashOn := true;
+  end;
+
+end;
+
+procedure TFrm_SocketClient.TreatServerResponse(aStream: TMemoryStream; aCommand, aRequiredType, aExtraData: string);
+var
+  sValue_Response : String;
+  SL_Response: TStringList;
+  sFilePathName: string;
+begin
+  Sleep(500);
+  sValue_Response := '';
+  try
+    try
+      if aRequiredType = 'str' then
+        sValue_Response := MemoryStreamToString(aStream, TEncoding.ANSI);
+
+      if (aRequiredType = 'str') And (length(sValue_Response) = 0) then
+      begin
+        Set_Led_Server_Active(4);
+        Set_Led_Connection(3);
+        Set_Led_Send_Receive(3);
+        Set_Led_File(3);
+        raise Exception.Create('');
+
+      end;
+
+
+      if aCommand = 'Connexion' then
+      begin
+        if length(sValue_Response) > 0 then
+        begin
+          Set_Led_Server_Active(2);
+          Set_Led_Connection(1);
+          Set_Led_Send_Receive(1);
+          Set_Led_File(5);
+        end;
+      end;
+
+      if aCommand = 'Commands' then
+      begin
+        SL_Response := Create_SL(sValue_Response, ';', false);
+        CB_Commands.Items.Clear;
+        CB_Commands.Items.AddStrings(SL_Response);
+        SL_Response.Free;
+      end;
+
+      if aCommand = 'List Files' then
+      begin
+        SL_Response := Create_SL(sValue_Response, ';', false);
+        Cb_Files.Items.Clear;
+        Cb_Files.Items.AddStrings(SL_Response);
+        SL_Response.Free;
+        exit;
+     end;
+
+     if aCommand = 'Get File' then
+     begin
+        sFilePathName := ExtractFilePath(Application.ExeName) + 'Files\' + aExtraData;
+        aStream.SaveToFile(sFilePathName);
+
+        Memo1.Lines.Add(Format('File %s transfered.', [aExtraData]) + #13#10);
+
+        Display_File(sFilePathName);
+
+        Set_Led_File(5);
+        exit;
+     end;
+
+    Memo1.Lines.Add(Format('Action %s Sent.' + #13#10 + 'Server Response: %s', [aCommand, sValue_Response])+#13#10);
+    SendMessage(Memo1.Handle, EM_SCROLLCARET, 0, 0);
+
+    except  on e: exception do
+      begin
+        Set_Led_File(3);
+        Memo1.Lines.Add(Format('Error on %s', [aCommand])+#13#10);
+        SendMessage(Memo1.Handle, EM_SCROLLCARET, 0, 0);
+      end;
+    end;
+    finally
+      aStream.Free;
+    end;
+end;
+
+procedure TFrm_SocketClient.Update_Tracer(aText: string);
+begin
+   Memo1.Lines.Add(aText);
+   SendMessage(Memo1.Handle, EM_SCROLLCARET, 0, 0);
+end;
+
+procedure TFrm_SocketClient.BBT_LoadFileClick(Sender: TObject);
+var
+  FStream : TMemoryStream;
+  PngImage : TPngImage;
+begin
+  Set_Led_Connection(2);
+  Set_Led_File(6);
+  try
+    Update_Tracer(Format('Request DownLoad: %s',[Cb_Files.Text]));
+    FStream := ClientRequestThread(E_Server_IP.Text, StrToInt(E_Server_Port.Text), 'Get File', 'file', Cb_Files.Text);
+    Set_Led_Connection(1);
+
+    Set_Led_Send_Receive(2);
+    TreatServerResponse(FStream, 'Get File', 'file', Cb_Files.Text);
+    Set_Led_Send_Receive(1);
+  finally
+    Set_Led_File(5);
+    Set_Led_Send_Receive(1);
+    Set_Led_Connection(1);
+  end;
+end;
+
+procedure TFrm_SocketClient.Bt_Send_CommandClick(Sender: TObject);
+var
+  FStream: TMemoryStream;
+begin
+  Set_Led_Connection(2);
+
+  Update_Tracer('Client Request: Commands');
+
+  FStream := ClientRequestThread(E_Server_IP.Text, StrToInt(E_Server_Port.Text), 'Commands', 'str');
+  Set_Led_Connection(1);
+
+  Set_Led_Send_Receive(2);
+  TreatServerResponse(FStream, 'Commands');
+  Set_Led_Send_Receive(1);
+end;
+
+procedure TFrm_SocketClient.Bt_Upload_FileClick(Sender: TObject);
+var
+  OpenDlg: TOpenDialog;
+  sResult: string;
+  sFileName: string;
+  FStream : TMemoryStream;
+  SL_Result: TStringList;
+  i: Integer;
+begin
+  OpenDlg := TOpenDialog.Create(self);
+  OpenDlg.Title := 'Upload File to Server. Select File';
+  OpenDlg.InitialDir := ExtractFilePath(Application.ExeName) + 'Files\';
+  try
+    if OpenDlg.Execute then
+    Try
+      if OpenDlg.FileName = '' then
+        Exit;
+
+      Set_Led_File(6);
+      sFileName := OpenDlg.FileName;
+     // Set_Led_File_Flashing();
+      Update_Tracer(Format('Uploading file: %s .....',[sFileName]));
+
+      FStream := ClientRequestThread(E_Server_IP.Text, StrToInt(E_Server_Port.Text), 'UploadFile', 'str', format('%s',[sFileName]));
+      TreatServerResponse(FStream, 'UploadFile');
+
+      sResult := ClientSendFile(E_Server_IP.Text, StrToInt(E_Server_Port.Text), 'UploadFile', format('%s',[sFileName]));
+
+      SL_Result := Create_SL(sResult,';', False);
+      for i := 0 to SL_Result.Count - 1 do
+        Update_Tracer(SL_Result[i]);
+
+    except on e:exception do
+      begin
+        Update_Tracer(Format('Error uploading File: %s',[sFileName]));
+        Update_Tracer(Format('Error: %s',[e.message]));
+      end;
+    End;
+  finally
+    OpenDlg.Free;
+    Set_Led_File(5);
+  end;
+end;
+
+procedure TFrm_SocketClient.CB_CommandsChange(Sender: TObject);
+var
+  FStream: TMemoryStream;
+begin
+  Set_Led_Connection(2);
+
+  Memo1.Lines.Add('Client Request: ' + CB_Commands.Text);
+  SendMessage(Memo1.Handle, EM_SCROLLCARET, 0, 0);
+
+  FStream := ClientRequestThread(E_Server_IP.Text, StrToInt(E_Server_Port.Text), CB_Commands.Text, 'str');
+  Set_Led_Connection(1);
+
+  Set_Led_Send_Receive(2);
+  TreatServerResponse(FStream, CB_Commands.Text, 'str', Cb_Files.Text);
+  Set_Led_Send_Receive(1);
+end;
+
+procedure TFrm_SocketClient.CB_EquipmentsChange(Sender: TObject);
+var
+  FStream: TMemoryStream;
+begin
+  Set_Led_Server_Active(6);
+  FStream := nil;
+  E_Server_IP.Text := inifile.ReadString(CB_Equipments.Text, 'IP_Adress', '127.0.0.1');
+  E_Server_Port.Text := inifile.ReadString(CB_Equipments.Text, 'Port','200');
+
+  Memo1.Lines.Clear;
+
+  FStream := ClientRequestThread(E_Server_IP.Text, StrToInt(E_Server_Port.Text), 'Connexion', 'str');
+  TreatServerResponse(FStream, 'Connexion', 'str', Cb_Files.Text);
+end;
+
+procedure TFrm_SocketClient.Cb_FilesChange(Sender: TObject);
+begin
+  BBT_LoadFile.Enabled := Cb_Files.ItemIndex > -1;
+end;
+
+procedure TFrm_SocketClient.Display_File(aPathFileName: String);
+var
+  sExt: string;
+begin
+  M_File.Lines.Clear;
+  sExt := ExtractFileExt(aPathFileName);
+  if (sExt = '.png') or (sExt = '.jpg') then
+  begin
+    Img_Picture.Picture.LoadFromFile(aPathFileName);
+    PC_Display_File.ActivePageIndex := 0;
+  end
+  else
+  begin
+    M_File.Lines.LoadFromFile(aPathFileName);
+    PC_Display_File.ActivePageIndex := 1;
+  end;
+end;
+
+procedure TFrm_SocketClient.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  FreeAndNil(inifile);
+end;
+
+procedure TFrm_SocketClient.FormCreate(Sender: TObject);
+begin
+ initialize;
+end;
+
+procedure TFrm_SocketClient.initialize;
+begin
+  Load_TxSocketClientDll(ExtractFilePath(Application.ExeName)+ '..\TxSocketClientDll\TxSocketClientDll.dll');
+  inifile := TIniFile.Create(ExtractFilePath(Application.ExeName)+ 'Client Data\Equipments.ini');
+  inifile.ReadSections(CB_Equipments.Items);
+
+  Set_Led_Server_Active(0);
+  Set_Led_Connection(0);
+  Set_Led_Send_Receive(0);
+  Set_Led_File(0);
+end;
+
+procedure TFrm_SocketClient.Memo1DblClick(Sender: TObject);
+begin
+  Memo1.Lines.Clear;
+end;
+
+procedure TFrm_SocketClient.Set_Led_Connection(aIndex:integer);
+begin
+  ImageList1.GetBitmap(aIndex, Img_Connected.Picture.Bitmap);
+  Img_Connected.repaint;
+end;
+
+procedure TFrm_SocketClient.Set_Led_File(aIndex:integer);
+begin
+  ImageList1.GetBitmap(aIndex, Img_GetFile.Picture.Bitmap);
+  Img_GetFile.repaint;
+end;
+
+procedure TFrm_SocketClient.Set_Led_File_Flashing();
+begin
+  Timer1.Enabled := Not Timer1.Enabled;
+end;
+
+procedure TFrm_SocketClient.Set_Led_Send_Receive(aIndex: integer);
+begin
+  ImageList1.GetBitmap(aIndex, Img_Send.Picture.Bitmap);
+  Img_Send.repaint;
+end;
+
+procedure TFrm_SocketClient.Set_Led_Server_Active(aIndex: integer);
+begin
+  ImageList1.GetBitmap(aIndex, Img_Server_Active.Picture.Bitmap);
+  Img_Server_Active.Repaint;
+end;
+
+end.

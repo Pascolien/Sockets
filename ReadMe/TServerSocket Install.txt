@@ -1,0 +1,2 @@
+If TClientSocket is missing when opening project : 
+	- Install component C:\Program Files (x86)\Embarcadero\RAD Studio\12.0\bin\dclsockets190.bpl
